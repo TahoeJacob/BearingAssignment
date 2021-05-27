@@ -99,20 +99,15 @@ shoulder_stress = shoulderCompressiveStress(shaftOuter_diameter, shaftInner_diam
 %actuating_force = UniformWear(T_comp, friction_factor, clutchOuter_diameter, shaftInner_diameter)
 figure
 hold on
-torqueArray = [1:100:T_comp];
-
 for k = 1:length(clutch_plates)
     N = clutch_plates(k); % select the number of clutch plates
+    torqueArray = [1:T_belt];
     actuatingForce = zeros(length(torqueArray));
     for j = 1:length(torqueArray)
         T_W = torqueArray(j);   % Select the current torque of shaft
-        actuatingForce(j) = UniformWear(T_W,friction_factor,clutchOuter_diameter,shaftInner_diameter, N);
+        actuatingForce = UniformWear(T_W,friction_factor,clutchOuter_diameter,shaftInner_diameter, N);
     end
     plot(torqueArray, actuatingForce);
-    xlabel("Shaft Torque [Nm]");
-    ylabel("Actuating Force");
-    
-end
     
         
 
