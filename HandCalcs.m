@@ -21,10 +21,11 @@ generator_power = 2e+3;
 beta = 12; %degrees
 Sy = 410e6; % [Pa]
 UTS = 680e6; % [Pa]
-SCF = 1.5; % Factor of safety for the shaft
+SCF = 1.6; % Factor of safety for the shaft
+friction_factor = 0.3; % Steel on cast iron
 shaftOuter_diameter = 0.110; % Shaft outer diameter [m]
 shaftInner_diameter = 0.100; % Shaft inner diameter [m]
-
+clutchOuter_diameter = 0.45; % Clutch inner diameter [m]
 %distances
 distance_between_bearings = 900e-3;
 distance_COM_2_outer_bearing = 650e-3;
@@ -49,8 +50,8 @@ B = [1 1;...
 Reactions = linsolve(B,[-belt_force + weight_force;...
     -belt_force * (distance_driveshaft_2_inner_brearing + distance_between_bearings + distance_COM_2_outer_bearing)]); 
 % moment calcs
-A_max = A_b + Reactions(1);
-B_max = B_b + Reactions(2);
+A_max = 14420; %A_b + Reactions(1);
+B_max = -6251; %B_b + Reactions(2);
 
 T_total = T_comp - T_belt; % Torque of belt takes away from torque of main shaft
 %T_com = torqueShaft(airCompressorPower,airCompressorOmega)
@@ -87,6 +88,12 @@ key_length_compressive = keyLengthCompressive(T_total, key_depth, Sy, shaftOuter
 % Shoulder calculations
 
 shoulder_stress = shoulderCompressiveStress(shaftOuter_diameter, shaftInner_diameter, axial_force);
+
+% Clutch calculations
+
+actuating_force = UniformWear(T_comp, friction_factor, clutchOuter_diameter, shaftInner_diameter)
+
+
 
 % Belt
 fprintf("Belt force [N]: %2.2f, Tension of Belt: %2.2f\n", belt_force, T_belt);
@@ -162,8 +169,8 @@ function [T] = torqueShaft(P,omega)
     T = P / omega;
 end
 
-function [T_W] = UniformWear(F,f,D,d)
-    T_W = (F * f) / (4) * (D + d);
+function [F] = UniformWear(T_W,f,D,d)
+    F = (4*T_W)/(f*(D+d));
 end
 
 function [T_W] = UniformPressure(F,f,D,d)
