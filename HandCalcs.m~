@@ -52,6 +52,7 @@ Reactions = linsolve(B,[-belt_force + weight_force;...
     -belt_force * (distance_driveshaft_2_inner_brearing + distance_between_bearings + distance_COM_2_outer_bearing)]); 
 
 
+
 % moment calcs
 %B_reaction_force = ((-1*weight_force*distance_COM_2_outer_bearing) - (B_b*distance_between_bearings) - (belt_force*(distance_between_bearings+distance_between_bearings+distance_belt_2_inner_bearing)))/distance_between_bearings;
 %A_reaction_force = ( (weight_force - A_b - B_reaction_force - B_b - belt_force));
@@ -60,6 +61,11 @@ A_max = 14420; %A_reaction_force + A_b; %B_b + Reactions(2);
 
 T_total = T_comp - T_belt; % Torque of belt takes away from torque of main shaft
 %T_com = torqueShaft(airCompressorPower,airCompressorOmega)
+
+%Second area moment from driveshaft
+momentABearing = 0;
+momentBBearing = B_b*distance_between_bearings;
+
 
 xArray = linspace(0, (650 + 900 + 320 + 50) * 10 ^ -3, 1000);
 [vArray,mArray] = momentDiagram(xArray, ...
@@ -71,10 +77,16 @@ plot(xArray,vArray,'lineWidth',3)
 ylabel("$V$","fontSize",14)
 xlabel("$x$","fontSize",14)
 figure
+hold on
+
+
 plot(xArray,mArray,'lineWidth',3)
+plot([0,0.65],[0,0],'lineWidth',3)
+plot([0.65, 1.55], [0, momentBBearing],'lineWidth',3)
+plot([0,0.65],[0,],'lineWidth',3)
 ylabel("$M$","fontSize",14)
 xlabel("$x$","fontSize",14)
-
+hold off
 max_moment = max(-1 * mArray);
 
 min_shaft_diameter = minShaftDiameter(T_comp, max_moment);
@@ -99,16 +111,20 @@ shoulder_stress = shoulderCompressiveStress(shaftOuter_diameter, shaftInner_diam
 %actuating_force = UniformWear(T_comp, friction_factor, clutchOuter_diameter, shaftInner_diameter)
 figure
 hold on
+torqueArray = [1:100:T_comp];
+
 for k = 1:length(clutch_plates)
     N = clutch_plates(k); % select the number of clutch plates
-    torqueArray = [1:T_belt];
     actuatingForce = zeros(length(torqueArray));
     for j = 1:length(torqueArray)
         T_W = torqueArray(j);   % Select the current torque of shaft
-        actuatingForce = UniformWear(T_W,friction_factor,clutchOuter_diameter,shaftInner_diameter, N);
+        actuatingForce(j) = UniformWear(T_W,friction_factor,clutchOuter_diameter,shaftInner_diameter, N);
     end
-    plot(torqueArray, actuatingForce);
+    plot(torqueArray, actuatingForce, 'lineWidth',3);
+    xlabel("Shaft Torque [Nm]","fontSize",14);
+    ylabel("Actuating Force","fontSize",14);
     
+end
         
 
 % Belt

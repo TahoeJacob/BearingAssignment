@@ -24,8 +24,8 @@ UTS = 680e6; % [Pa]
 SCF = 1.6; % Factor of safety for the shaft
 friction_factor = 0.3; % Steel on cast iron
 clutch_plates = [1,2,3,4,5]; % Array of number of clutch plates 
-shaftOuter_diameter = 0.110; % Shaft outer diameter [m]
-shaftInner_diameter = 0.100; % Shaft inner diameter [m]
+shaftOuter_diameter = 0.120; % Shaft outer diameter [m]
+shaftInner_diameter = 0.110; % Shaft inner diameter [m]
 clutchOuter_diameter = 0.45; % Clutch inner diameter [m]
 %distances
 distance_between_bearings = 900e-3;
@@ -35,7 +35,7 @@ distance_driveshaft_2_inner_brearing = distance_belt_2_inner_bearing + 50e-3;
 PCD= 500e-3;
 weight_force = 850 * 9.81;
 axial_force = 18e3; % force [N]
-
+Sy_mildsteel = 250e6; 
 
 %belt force calcs
 T_belt = torqueShaft(generator_power,generator_omega); % Torque from gen
@@ -52,6 +52,7 @@ Reactions = linsolve(B,[-belt_force + weight_force;...
     -belt_force * (distance_driveshaft_2_inner_brearing + distance_between_bearings + distance_COM_2_outer_bearing)]); 
 
 
+
 % moment calcs
 %B_reaction_force = ((-1*weight_force*distance_COM_2_outer_bearing) - (B_b*distance_between_bearings) - (belt_force*(distance_between_bearings+distance_between_bearings+distance_belt_2_inner_bearing)))/distance_between_bearings;
 %A_reaction_force = ( (weight_force - A_b - B_reaction_force - B_b - belt_force));
@@ -61,9 +62,14 @@ A_max = 14420; %A_reaction_force + A_b; %B_b + Reactions(2);
 T_total = T_comp - T_belt; % Torque of belt takes away from torque of main shaft
 %T_com = torqueShaft(airCompressorPower,airCompressorOmega)
 
+%Second area moment from driveshaft
+secondMomentABearing = 0;
+secondMomentBBearing = B_b*distance_between_bearings;
+
+
 xArray = linspace(0, (650 + 900 + 320 + 50) * 10 ^ -3, 1000);
 [vArray,mArray] = momentDiagram(xArray, ...
-    -850 * 9.81, 0, ...
+    -weight_force, 0, ...
     A_max,650e-3, ...
     B_max,(650+900) * 10 ^ -3, ...
     belt_force, (650 + 900 + 320) * 10 ^ -3);
@@ -71,24 +77,34 @@ plot(xArray,vArray,'lineWidth',3)
 ylabel("$V$","fontSize",14)
 xlabel("$x$","fontSize",14)
 figure
+hold on
+
+
 plot(xArray,mArray,'lineWidth',3)
+plot([0,0.65],[0,0],'y','lineWidth',3 )
+plot([0.65, 1.55], [0, secondMomentBBearing],'y', 'lineWidth',3)
+plot([1.55,2],[secondMomentBBearing, secondMomentBBearing],'y','lineWidth',3)
 ylabel("$M$","fontSize",14)
 xlabel("$x$","fontSize",14)
-
+hold off
 max_moment = max(-1 * mArray);
 
+bearingBindex = find(xArray >= 1.55, 1);
+momentAtBearingB = sqrt(mArray(bearingBindex)^2 + secondMomentBBearing^2);
+
 min_shaft_diameter = minShaftDiameter(T_comp, max_moment);
+min_smaller_shaft_diameter = minShaftDiameter(T_comp, momentAtBearingB);
 
-FOS = ShaftFOS(T_total, max_moment, Sy, SCF, shaftOuter_diameter);
+FOS = ShaftFOS(T_total, momentAtBearingB, Sy, SCF, shaftOuter_diameter);
 
-key_width = 0.25 * shaftOuter_diameter; % Width of key (Industry standard to choose 1/4 diamter of shaft 
-key_depth = 0.125 * shaftOuter_diameter; % Depth of shaft (1/2 way above shaft)
+key_width = 0.25 * shaftInner_diameter; % Width of key (Industry standard to choose 1/4 diamter of shaft 
+key_depth = 0.125 * shaftInner_diameter; % Depth of shaft (1/2 way above shaft)
 
 % Display Results
 
-key_length_shear = keyLengthShear(T_total, key_width, Sy, shaftOuter_diameter);
+key_length_shear = keyLengthShear(T_total, key_width, Sy_mildsteel, shaftInner_diameter);
 
-key_length_compressive = keyLengthCompressive(T_total, key_depth, Sy, shaftOuter_diameter);
+key_length_compressive = keyLengthCompressive(T_total, key_depth, Sy_mildsteel, shaftInner_diameter);
 
 % Shoulder calculations
 
@@ -108,12 +124,11 @@ for k = 1:length(clutch_plates)
         T_W = torqueArray(j);   % Select the current torque of shaft
         actuatingForce(j) = UniformWear(T_W,friction_factor,clutchOuter_diameter,shaftInner_diameter, N);
     end
-    plot(torqueArray, actuatingForce);
-    xlabel("Shaft Torque [Nm]");
-    ylabel("Actuating Force");
+    plot(torqueArray, actuatingForce, 'lineWidth',3);
+    xlabel("Shaft Torque [Nm]","fontSize",14);
+    ylabel("Actuating Force","fontSize",14);
     
 end
-    
         
 
 % Belt
