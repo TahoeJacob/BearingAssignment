@@ -22,8 +22,8 @@ beta = 12; %degrees
 Sy = 410e6; % [Pa]
 UTS = 680e6; % [Pa]
 SCF = 1.6; % Factor of safety for the shaft
-friction_factor = 0.3; % Steel on cast iron
-clutch_plates = [1,2,3,4,5]; % Array of number of clutch plates 
+friction_factor = 0.35; % Steel on cast iron
+clutch_plates = [1,2,3,4]; % Array of number of clutch plates 
 shaftOuter_diameter = 0.120; % Shaft outer diameter [m]
 shaftInner_diameter = 0.110; % Shaft inner diameter [m]
 clutchOuter_diameter = 0.45; % Clutch inner diameter [m]
@@ -59,7 +59,7 @@ Reactions = linsolve(B,[-belt_force + weight_force;...
 B_max = -6251.33; %B_reaction_force + B_b; %14420; %A_b + Reactions(1);
 A_max = 14420; %A_reaction_force + A_b; %B_b + Reactions(2);
 
-T_total = T_comp - T_belt; % Torque of belt takes away from torque of main shaft
+T_total = T_comp +  T_belt; % Torque of belt takes away from torque of main shaft
 %T_com = torqueShaft(airCompressorPower,airCompressorOmega)
 
 %Second area moment from driveshaft
@@ -90,15 +90,15 @@ hold off
 max_moment = max(-1 * mArray);
 
 bearingBindex = find(xArray >= 1.55, 1);
-momentAtBearingB = sqrt(mArray(bearingBindex)^2 + secondMomentBBearing^2);
+%momentAtBearingB = sqrt(mArray(bearingBindex)^2 + secondMomentBBearing^2);
+momentAtBearingB = mArray(bearingBindex);
+min_shaft_diameter = minShaftDiameter(T_comp, momentAtBearingB);
+%min_smaller_shaft_diameter = minShaftDiameter(T_comp, momentAtBearingB);
 
-min_shaft_diameter = minShaftDiameter(T_comp, max_moment);
-min_smaller_shaft_diameter = minShaftDiameter(T_comp, momentAtBearingB);
+FOS = ShaftFOS(T_total, 60, Sy, SCF, shaftInner_diameter);
 
-FOS = ShaftFOS(T_total, momentAtBearingB, Sy, SCF, shaftOuter_diameter);
-
-key_width = 0.25 * shaftInner_diameter; % Width of key (Industry standard to choose 1/4 diamter of shaft 
-key_depth = 0.125 * shaftInner_diameter; % Depth of shaft (1/2 way above shaft)
+key_width = ceil(0.25 * (shaftInner_diameter*1000))/1000; % Width of key (Industry standard to choose 1/4 diamter of shaft 
+key_depth = floor(0.25 * (shaftInner_diameter*1000))/1000; % Depth of shaft (1/2 way above shaft)
 
 % Display Results
 
@@ -116,28 +116,50 @@ shoulder_stress = shoulderCompressiveStress(shaftOuter_diameter, shaftInner_diam
 figure
 hold on
 torqueArray = [1:100:T_comp];
+diameterArray = [200:(290/length(torqueArray)):489];
+friction_factors = [0.15, 0.25, 0.35, 0.5];
 
 for k = 1:length(clutch_plates)
-    N = clutch_plates(k); % select the number of clutch plates
-    actuatingForce = zeros(length(torqueArray));
-    for j = 1:length(torqueArray)
-        T_W = torqueArray(j);   % Select the current torque of shaft
-        actuatingForce(j) = UniformWear(T_W,friction_factor,clutchOuter_diameter,shaftInner_diameter, N);
+    N = 1; % select the number of clutch plates
+    friction_factor = friction_factors(k);
+    actuatingForce = [];
+    for j = 1:length(diameterArray)
+        %T_W = T_comp;   
+        outerD = diameterArray(j); % Select the current diameter of shaft
+        actuatingForce(j) = UniformWear(T_comp,friction_factor,outerD,shaftInner_diameter, N);
     end
-    plot(torqueArray, actuatingForce, 'lineWidth',3);
-    xlabel("Shaft Torque [Nm]","fontSize",14);
-    ylabel("Actuating Force","fontSize",14);
+    plot(diameterArray, actuatingForce, 'lineWidth',3);
+    xlabel("Shaft diameter [mm]","fontSize",14);
+    ylabel("Actuating Force [N]","fontSize",14);
     
 end
-        
+legend("F: 0.15", "F: 0.25", "F: 0.35", "F: 0.5");
 
+hold off
+
+figure
+hold on
+for n = 1:length(clutch_plates)
+    N = clutch_plates(n);
+    actuatingForce = [];
+    for b = 1:length(diameterArray)
+        outer = diameterArray(b);
+        actuatingForce(b) = UniformWear(T_comp, friction_factor, outer, shaftInner_diameter, N);
+    end
+    
+    plot(diameterArray, actuatingForce,'lineWidth',3);
+    xlabel("Shaft diameter [mm]", "fontSize", 14);
+    ylabel("Acutating Force [N]", "fontSize", 14);
+end
+legend("N: 1", "N: 2", "N: 3", "N: 4");
+hold off
 % Belt
 fprintf("Belt force [N]: %2.2f, Tension of Belt: %2.2f\n", belt_force, T_belt);
 
 % Shaft Diamter
 fprintf("Minimum shaft diameter: %2.4f mm\n",min_shaft_diameter*1e3);
 fprintf("Max Moment: %2.4f Nm\n",max_moment);
-fprintf("Shaft Diameter with FOS(%2.2f): %2.2f mm \n", FOS, shaftOuter_diameter*1000);
+fprintf("Shaft Diameter with FOS(%2.2f): %2.2f mm \n", FOS, shaftInner_diameter*1000);
 
 % Keyway results
 fprintf("Length of key under shear stress: %2.2f mm\n", key_length_shear*1000);
@@ -152,8 +174,8 @@ fprintf("Compressive stress on shoulder is: %2.2f MPa \n", shoulder_stress/1e6);
 %--------------------------------------------------------------------------
 function [shoulder_comp_stress] = shoulderCompressiveStress(shaftOuter_diameter, shaftInner_diameter, axial_force)
     
-    surface_area = (pi/4) * (shaftOuter_diameter^2 - shaftInner_diameter^2);
-    shoulder_comp_stress = axial_force/surface_area;
+    surface_area = (pi/4) * (shaftOuter_diameter^2 - shaftInner_diameter^2)
+    shoulder_comp_stress = axial_force/surface_area
 end
 
 function [key_length_comp] = keyLengthCompressive(T_total, key_depth, Sy, shaft_diameter)
@@ -171,7 +193,7 @@ end
 
 function[FOS] = ShaftFOS(T_total, max_moment, Sy, SCF, shaft_diameter)
     % Calculate the shaft diameter with accounting for a specific FOS
-    max_shear = 16/(pi*shaft_diameter^3) * sqrt(max_moment^2 + T_total^2);
+    max_shear = 16/(pi*shaft_diameter^3) * sqrt(max_moment^2 + T_total^2)
     tensile_stress = 2 * max_shear;
     FOS = Sy/(tensile_stress*SCF);
     
